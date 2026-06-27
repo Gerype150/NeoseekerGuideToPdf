@@ -1,7 +1,4 @@
 {
-  "url": "https://www.neoseeker.com/dragon-quest-xi/walkthrough",
-  "output": "Dragon Quest XI Walkthrough.pdf",
-  "remove_ads": true,
-  "keep_images": true,
-  "retries": 3
+    "url": "https://www.neoseeker.com/dragon-quest-xi/walkthrough",
+    "output": "Dragon Quest XI Walkthrough.pdf"
 }

@@ -1,9 +1,6 @@
 from bs4 import BeautifulSoup
 
 
-from bs4 import BeautifulSoup
-
-
 def clean_html(html):
 
     soup = BeautifulSoup(
@@ -12,48 +9,72 @@ def clean_html(html):
     )
 
 
-    # eliminar basura real
-    for e in soup.select(
-        """
-        script,
-        iframe,
-        header,
-        nav,
-        footer,
-        .sidebar,
+    for e in soup.select("""
         #comments,
         .comments,
         .comment,
-        .user-comments
-        """
-    ):
-        e.decompose()
-
-
-    # anuncios
-    for e in soup.select(
-        """
+        .sidebar,
         .ads,
         .advertisement,
         .ad-container,
-        [class*="ad"],
+        [class*="ad-"],
         [id*="ad"]
-        """
-    ):
+    """):
         e.decompose()
 
 
-    # mantener imágenes pero quitar link envolvente
-    for a in soup.find_all("a"):
+    for e in soup.find_all(
+        lambda tag:
+            tag.name in ["div", "section"]
+            and "Advertisement" in tag.get_text()
+    ):
+        e.decompose()
+
+    styles = soup.select(
+        'link[rel="stylesheet"], style'
+    )
+
+
+    title = soup.select_one(
+        "#page-title"
+    )
+
+    content = soup.select_one(
+        "#wiki-content"
+    )
+
+
+    if not content:
+        return "", "", ""
+
+
+    hrs = content.find_all("hr")
+
+    if hrs:
+        hrs[-1].decompose()
+
+
+    clearfix = content.select(
+        ".clearfix"
+    )
+
+    if clearfix:
+        clearfix[-1].decompose()
+
+
+    for a in content.find_all("a"):
+
         if a.find("img"):
             a.unwrap()
 
 
-    title = (
-        soup.title.get_text()
-        if soup.title
-        else "Neoseeker"
+    css = "\n".join(
+        str(x) for x in styles
     )
 
 
-    return title, str(soup.body)
+    return (
+        str(title) if title else "",
+        str(content),
+        css
+    )
