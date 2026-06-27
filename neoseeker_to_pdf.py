@@ -110,9 +110,6 @@ def download(url):
                 raise
 
 
-            time.sleep(3)
-
-
 
 def get_cookies(context):
 
@@ -267,9 +264,6 @@ border-collapse: collapse;
             </section>
 
             """)
-
-
-        time.sleep(3)
 
 
 
