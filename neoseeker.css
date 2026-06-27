@@ -1,0 +1,102 @@
+.alert.alert-info,
+.alert.alert-primary {
+    border: 1px solid #BCE8F1;
+    background-color: #D9EDF7;
+    color: #205D86;
+    padding: 10px;
+}
+
+.nBox.success,
+.alert.alert-success {
+    border: 1px solid #B5D363;
+    background-color: #EEF4D4;
+    color: #486B38;
+    padding: 10px;
+}
+
+.nBox.error,
+.alert.alert-error,
+.alert.alert-danger {
+    border: 1px solid #FBC2C4;
+    background: #FBE3E4;
+    color: #8a1f11;
+    padding: 10px;
+}
+
+.alert.alert-secondary {
+    border: 1px solid #dddfe2;
+    background-color: #e7e8ea;
+    color: #464a4e;
+    padding: 10px;
+}
+
+
+.section-info {
+    background-color: #E6F1FF;
+    border: 1px solid #D9D9D9;
+}
+
+
+.section-info .section-header {
+    background-color: #336699;
+    color: white;
+    padding: 5px;
+}
+
+
+.table-striped,
+.table-list,
+.table-list-bordered,
+.table-list-wide-column,
+.table-overview {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+
+.table-striped td,
+.table-striped th,
+.table-list td,
+.table-list th,
+.table-overview td,
+.table-overview th {
+    border: 1px solid #ddd;
+    padding: 5px;
+}
+
+
+.table-striped tbody > tr:nth-child(odd) > td,
+.table-list tbody > tr:nth-child(odd) > td,
+.table-list-bordered tbody > tr:nth-child(odd) > td,
+.table-list-wide-column tbody > tr:nth-child(odd) > td,
+.table-overview tbody > tr:nth-child(odd) > td {
+    background-color: #f6f6f6;
+}
+
+.table-list thead, .table-list-bordered thead, .table-list-wide-column thead, .table-overview thead, .table-list th, .table-list-bordered th, .table-list-wide-column th, .table-overview th {
+    background: #049cdb;
+    color: #fff;
+    font-weight: bold;
+}
+
+.table-list tbody > tr:nth-child(odd) th, .table-list-bordered tbody > tr:nth-child(odd) th, .table-list-wide-column tbody > tr:nth-child(odd) th, .table-overview tbody > tr:nth-child(odd) th, .table-list tbody > tr:hover th, .table-list-bordered tbody > tr:hover th, .table-list-wide-column tbody > tr:hover th, .table-overview tbody > tr:hover th {
+    background: #049cdb;
+}
+
+
+
+img {
+    max-width: 100%;
+}
+
+
+table {
+    page-break-inside: avoid;
+}
+
+
+.alert,
+.nBox,
+.section-info {
+    page-break-inside: avoid;
+}

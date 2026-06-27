@@ -1,7 +1,9 @@
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+import requests
 
 
-def clean_html(html):
+def clean_html(html, base_url):
 
     soup = BeautifulSoup(
         html,
@@ -85,10 +87,42 @@ def clean_html(html):
             a.unwrap()
 
 
-    css = "\n".join(
-        str(x) for x in styles
-    )
-    
+    # descargar CSS original
+    css = ""
+
+    for link in soup.select(
+        'link[rel="stylesheet"]'
+    ):
+
+        href = link.get("href")
+
+        if href:
+
+            css_url = urljoin(
+                base_url,
+                href
+            )
+
+            try:
+                r = requests.get(
+                    css_url,
+                    headers={
+                        "User-Agent":
+                        "Mozilla/5.0"
+                    },
+                    timeout=20
+                )
+
+                if r.ok:
+                    css += (
+                        '<style type="text/css">\n'
+                        + r.text
+                        + '\n</style>\n'
+                    )
+
+            except Exception:
+                pass
+
     # limpieza final de anuncios por contenido/atributos
     for div in list(content.find_all("div")):
 
@@ -119,7 +153,7 @@ def clean_html(html):
             div.decompose()
 
     return (
-        str(title) if title else "",
-        str(content),
-        css
-    )
+    str(title) if title else "",
+    content.decode_contents(),
+    css
+)

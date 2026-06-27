@@ -184,53 +184,28 @@ def get_chapters(page):
 
 def build_html(chapters):
 
-
     output = []
 
-
-    output.append("""
-<!DOCTYPE html>
-
-<html>
-
-<head>
-
-<meta charset="utf-8">
-
-<style>
-
-body {
-font-family: Arial;
-}
+    with open("neoseeker.css", encoding="utf-8") as f:
+        css = f.read()
 
 
-.chapter {
-page-break-before: always;
-}
+    output.append(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
 
+    <meta charset="utf-8">
 
-img {
-max-width:100%;
-}
+    <style>
+    {css}
+    </style>
 
+    </head>
+    <body>
 
-table {
-border-collapse: collapse;
-}
-
-
-</style>
-
-
-</head>
-
-
-<body>
-
-
-<h1>Neoseeker Walkthrough</h1>
-
-""")
+    <h1>Neoseeker Walkthrough</h1>
+    """)
 
 
     for i, chapter in enumerate(chapters):
@@ -248,8 +223,10 @@ border-collapse: collapse;
 
 
 
-        title, content, css = clean_html(html)
-
+        title, content, css = clean_html(
+            html,
+            chapter
+        )
 
         output.append(f"""
 
