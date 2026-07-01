@@ -93,6 +93,25 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                 element.style.setProperty("page-break-before", legacyValue, "important");
             };
 
+            const unwrapGeneratedGroups = () => {
+                const groups = Array.from(
+                    document.querySelectorAll(
+                        "div.generated-title-image-group, div.generated-alert-head-group, div.generated-title-table-group"
+                    )
+                );
+                for (const group of groups) {
+                    const parent = group.parentNode;
+                    if (!parent) {
+                        continue;
+                    }
+
+                    while (group.firstChild) {
+                        parent.insertBefore(group.firstChild, group);
+                    }
+                    parent.removeChild(group);
+                }
+            };
+
             const getImageOnlyBlockImage = (element) => {
                 if (!element) {
                     return null;
@@ -116,7 +135,7 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                 return images[0];
             };
 
-            const getHeadingForSiblingBlock = (block) => {
+            const getHeadingContextForSiblingBlock = (block) => {
                 const maybeHr = block.previousElementSibling;
                 if (!maybeHr || maybeHr.tagName.toLowerCase() !== "hr") {
                     return null;
@@ -127,7 +146,7 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                     return null;
                 }
 
-                return maybeH2;
+                return { heading: maybeH2, hr: maybeHr };
             };
 
             const alignSectionHeadingWithContainerBreak = (container) => {
@@ -154,6 +173,8 @@ def _apply_print_break_policy(page) -> dict[str, int]:
             probe.style.top = "0";
             document.body.appendChild(probe);
 
+            unwrapGeneratedGroups();
+
             const pageHeightPx = probe.getBoundingClientRect().height || 1122;
             probe.remove();
 
@@ -161,6 +182,8 @@ def _apply_print_break_policy(page) -> dict[str, int]:
             const pageTitles = Array.from(document.querySelectorAll("div#page-title"));
             const tableContainers = new Set();
             const headingImageBlocks = [];
+            const alertHeadGroups = [];
+            const headingTableGroups = [];
 
             for (const element of elements) {
                 if (element.tagName.toLowerCase() !== "table") {
@@ -179,12 +202,69 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                     continue;
                 }
 
-                const heading = getHeadingForSiblingBlock(block);
-                if (!heading) {
+                const headingContext = getHeadingContextForSiblingBlock(block);
+                if (!headingContext) {
                     continue;
                 }
 
-                headingImageBlocks.push({ block, image, heading });
+                headingImageBlocks.push({ block, image, heading: headingContext.heading, hr: headingContext.hr });
+            }
+
+            for (const item of headingImageBlocks) {
+                const wrapper = document.createElement("div");
+                wrapper.className = "generated-title-image-group";
+                wrapper.style.setProperty("break-inside", "avoid-page", "important");
+                wrapper.style.setProperty("page-break-inside", "avoid", "important");
+
+                const parent = item.heading.parentNode;
+                if (!parent) {
+                    continue;
+                }
+
+                parent.insertBefore(wrapper, item.heading);
+                wrapper.appendChild(item.heading);
+                wrapper.appendChild(item.hr);
+                wrapper.appendChild(item.block);
+            }
+
+            for (const alert of Array.from(document.querySelectorAll("div.alert"))) {
+                const title = alert.querySelector(":scope > h3");
+                if (!title) {
+                    continue;
+                }
+
+                let imageBlock = null;
+                let cursor = title.nextElementSibling;
+                while (cursor) {
+                    const tag = cursor.tagName.toLowerCase();
+                    if (tag === "p" || tag === "center" || tag === "div") {
+                        const img = cursor.querySelector("img");
+                        if (img) {
+                            imageBlock = cursor;
+                            break;
+                        }
+                    }
+
+                    if (tag === "p" && (cursor.textContent || "").trim()) {
+                        break;
+                    }
+
+                    cursor = cursor.nextElementSibling;
+                }
+
+                if (!imageBlock) {
+                    continue;
+                }
+
+                const wrapper = document.createElement("div");
+                wrapper.className = "generated-alert-head-group";
+                wrapper.style.setProperty("break-inside", "avoid-page", "important");
+                wrapper.style.setProperty("page-break-inside", "avoid", "important");
+
+                alert.insertBefore(wrapper, title);
+                wrapper.appendChild(title);
+                wrapper.appendChild(imageBlock);
+                alertHeadGroups.push({ alert, wrapper });
             }
 
             // Reset print-related inline styles so each run starts clean.
@@ -209,10 +289,14 @@ def _apply_print_break_policy(page) -> dict[str, int]:
             for (const item of headingImageBlocks) {
                 setBreakBeforePage(item.heading, false);
             }
+            for (const item of alertHeadGroups) {
+                setBreakBeforePage(item.alert, false);
+            }
 
             let keepTogetherApplied = 0;
             let forcedPageTitleBreaks = 0;
             let forcedHeadingBreaks = 0;
+            let forcedAlertHeadBreaks = 0;
             const appliedTargets = new Set();
             const headingBreakSet = new Set();
 
@@ -244,6 +328,86 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                         headingBreakSet.add(item.heading);
                         forcedHeadingBreaks += 1;
                     }
+                }
+            }
+
+            for (const item of alertHeadGroups) {
+                const groupRect = item.wrapper.getBoundingClientRect();
+                const groupHeight = groupRect.height;
+                if (groupHeight <= 0 || groupHeight >= pageHeightPx * 0.98) {
+                    continue;
+                }
+
+                const alertTop = getAbsoluteTop(item.alert);
+                const offsetInPage = getOffsetInPage(alertTop, pageHeightPx);
+                const remainingOnPage = getSpaceToNextPage(offsetInPage, pageHeightPx);
+
+                if (groupHeight > remainingOnPage) {
+                    setBreakBeforePage(item.alert, true);
+                    forcedAlertHeadBreaks += 1;
+                }
+            }
+
+            for (const table of Array.from(document.querySelectorAll("table"))) {
+                const optionalParagraph = table.previousElementSibling;
+                let hr = null;
+                let heading = null;
+
+                if (optionalParagraph && optionalParagraph.tagName.toLowerCase() === "p") {
+                    hr = optionalParagraph.previousElementSibling;
+                } else {
+                    hr = table.previousElementSibling;
+                }
+
+                if (!hr || hr.tagName.toLowerCase() !== "hr") {
+                    continue;
+                }
+
+                heading = hr.previousElementSibling;
+                if (!heading || heading.tagName.toLowerCase() !== "h2") {
+                    continue;
+                }
+
+                if (heading.closest("div.generated-title-table-group")) {
+                    continue;
+                }
+
+                const group = document.createElement("div");
+                group.className = "generated-title-table-group";
+                group.style.setProperty("break-inside", "avoid-page", "important");
+                group.style.setProperty("page-break-inside", "avoid", "important");
+
+                const parent = heading.parentNode;
+                if (!parent) {
+                    continue;
+                }
+
+                parent.insertBefore(group, heading);
+                group.appendChild(heading);
+                group.appendChild(hr);
+                if (optionalParagraph && optionalParagraph.tagName.toLowerCase() === "p") {
+                    group.appendChild(optionalParagraph);
+                }
+                group.appendChild(table);
+
+                headingTableGroups.push({ heading, group });
+            }
+
+            let forcedTitleTableBreaks = 0;
+            for (const item of headingTableGroups) {
+                const groupRect = item.group.getBoundingClientRect();
+                const groupHeight = groupRect.height;
+                if (groupHeight <= 0 || groupHeight >= pageHeightPx * 0.98) {
+                    continue;
+                }
+
+                const headingTop = getAbsoluteTop(item.heading);
+                const offsetInPage = getOffsetInPage(headingTop, pageHeightPx);
+                const remainingOnPage = getSpaceToNextPage(offsetInPage, pageHeightPx);
+
+                if (groupHeight > remainingOnPage) {
+                    setBreakBeforePage(item.heading, true);
+                    forcedTitleTableBreaks += 1;
                 }
             }
 
@@ -293,6 +457,8 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                 keepTogetherApplied,
                 forcedPageTitleBreaks,
                 forcedHeadingBreaks,
+                forcedAlertHeadBreaks,
+                forcedTitleTableBreaks,
             };
         }
         """
@@ -466,7 +632,9 @@ def generate_pdf(
             f"candidatos={policy_stats['candidates']},",
             f"keepTogether={policy_stats['keepTogetherApplied']},",
             f"pageTitleBreaks={policy_stats['forcedPageTitleBreaks']},",
-            f"h2Breaks={policy_stats['forcedHeadingBreaks']}",
+            f"h2Breaks={policy_stats['forcedHeadingBreaks']},",
+            f"alertHeadBreaks={policy_stats['forcedAlertHeadBreaks']},",
+            f"titleTableBreaks={policy_stats['forcedTitleTableBreaks']}",
         )
         chapter_starts = _collect_chapter_page_starts(page, margin_top_mm, margin_bottom_mm)
         print("Cabecera/Pie: capitulos dinamicos por pagina en margen")
