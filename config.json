@@ -1,4 +1,5 @@
 {
     "url": "https://www.neoseeker.com/dragon-quest-xi/walkthrough",
-    "output": "Dragon Quest XI Walkthrough.pdf"
+    "output": "Dragon Quest XI Walkthrough.pdf",
+    "wait_for_cloudflare_input": false
 }

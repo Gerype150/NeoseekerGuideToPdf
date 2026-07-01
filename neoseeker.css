@@ -87,6 +87,9 @@
 
 img {
     max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
 }
 
 
@@ -99,4 +102,77 @@ table {
 .nBox,
 .section-info {
     page-break-inside: avoid;
+}
+
+@media print {
+    img {
+        break-inside: avoid-page;
+        page-break-inside: avoid;
+    }
+
+    .alert.alert-info,
+    .alert.alert-primary,
+    .alert.alert-success,
+    .alert.alert-error,
+    .alert.alert-danger,
+    .alert.alert-secondary,
+    div.section.section-info,
+    .section-info,
+    table {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+    }
+
+    table,
+    thead,
+    tbody,
+    tfoot,
+    tr,
+    td,
+    th {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+    }
+
+    .pdf-keep-together {
+        break-inside: avoid-page !important;
+        page-break-inside: avoid !important;
+    }
+
+    .pdf-break-before-page {
+        display: block !important;
+        break-before: page !important;
+        page-break-before: always !important;
+    }
+
+    p {
+        break-inside: auto;
+        page-break-inside: auto;
+    }
+
+    /* Keep image-only paragraphs together without forcing all text paragraphs. */
+    p:has(> img:only-child),
+    p:has(> a > img:only-child),
+    center:has(> img:only-child) {
+        break-inside: avoid-page;
+        page-break-inside: avoid;
+    }
+
+    p:has(> img:only-child) > img,
+    p:has(> a > img:only-child) > a > img,
+    center:has(> img:only-child) > img {
+        height: auto;
+        max-height: 72vh;
+        width: auto;
+        max-width: 100%;
+    }
+
+    p:has(> img:only-child):has(+ p:has(> img:only-child)) > img,
+    p:has(> img:only-child) + p:has(> img:only-child) > img,
+    p:has(> a > img:only-child):has(+ p:has(> a > img:only-child)) > a > img,
+    p:has(> a > img:only-child) + p:has(> a > img:only-child) > a > img,
+    center:has(> img:only-child):has(+ center:has(> img:only-child)) > img,
+    center:has(> img:only-child) + center:has(> img:only-child) > img {
+        max-height: 46vh;
+    }
 }
