@@ -49,13 +49,17 @@ def _extract_title_text(title_html: str, index: int) -> str:
     if not text:
         return f"Capitulo {index}"
 
-    # Remove the repeated game title prefix from TOC labels.
-    text = re.sub(
-        r"^Dragon\s+Quest\s+XI:\s*Echoes\s+of\s+an\s+Elusive\s+Age\s*[-:|]?\s*",
-        "",
-        text,
-        flags=re.IGNORECASE,
-    ).strip()
+    # Remove the repeated title-prefix based on the <strong> text in the heading block.
+    strong = soup.find("strong")
+    strong_text = strong.get_text(" ", strip=True) if strong else ""
+    if strong_text:
+        strong_pattern = re.escape(strong_text)
+        text = re.sub(
+            rf"^{strong_pattern}\s*[-:|]?\s*",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        ).strip()
 
     return text or f"Capitulo {index}"
 

@@ -363,6 +363,7 @@ def _apply_print_break_policy(page) -> dict[str, int]:
 
             const elements = Array.from(document.querySelectorAll(targetSelectors.join(",")));
             const pageTitles = Array.from(document.querySelectorAll("div#page-title"));
+            const chapters = Array.from(document.querySelectorAll("section.chapter"));
             const tableContainers = new Set();
             const headingImageBlocks = [];
             const alertHeadGroups = [];
@@ -470,6 +471,9 @@ def _apply_print_break_policy(page) -> dict[str, int]:
             for (const title of pageTitles) {
                 setBreakBeforePage(title, false);
             }
+            for (const chapter of chapters) {
+                setBreakBeforePage(chapter, false);
+            }
             for (const container of tableContainers) {
                 const maybeHr = container.previousElementSibling;
                 if (maybeHr && maybeHr.tagName.toLowerCase() === "hr") {
@@ -502,6 +506,14 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                 if (shouldBreak) {
                     forcedPageTitleBreaks += 1;
                 }
+            }
+
+            // Ensure each chapter starts on a fresh page even if source title markup changes.
+            for (let chapterIndex = 0; chapterIndex < chapters.length; chapterIndex += 1) {
+                if (chapterIndex === 0) {
+                    continue;
+                }
+                setBreakBeforePage(chapters[chapterIndex], true);
             }
 
             for (const item of headingImageBlocks) {
@@ -1083,7 +1095,6 @@ def generate_pdf(
             chapter_starts = _collect_chapter_page_starts_by_layout(page, margin_top_mm, margin_bottom_mm)
 
         toc_updated = _apply_toc_page_numbers(page, chapter_starts)
-        print("Cabecera/Pie: capitulos dinamicos por pagina en margen")
         print(f"Capitulos detectados: {len(chapter_starts)}")
         print(f"Indice actualizado con paginas: {toc_updated}")
         page.wait_for_timeout(1000)

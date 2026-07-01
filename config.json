@@ -1,6 +1,6 @@
 {
     "url": "https://www.neoseeker.com/dragon-quest-xi/walkthrough",
-    "output": "DQXI Walkthrough.pdf",
+    "output": "DQXI.pdf",
     "wait_for_cloudflare_input": false,
     "pdf_margin_top_mm": 20,
     "pdf_margin_bottom_mm": 16,
