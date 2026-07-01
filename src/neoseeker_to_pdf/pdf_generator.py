@@ -90,6 +90,21 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                 element.style.setProperty("page-break-before", legacyValue, "important");
             };
 
+            const alignSectionHeadingWithContainerBreak = (container) => {
+                const maybeHr = container.previousElementSibling;
+                if (!maybeHr || maybeHr.tagName.toLowerCase() !== "hr") {
+                    return;
+                }
+
+                const maybeH2 = maybeHr.previousElementSibling;
+                if (!maybeH2 || maybeH2.tagName.toLowerCase() !== "h2") {
+                    return;
+                }
+
+                // Move section title separators together with the section-info block.
+                setBreakBeforePage(maybeH2, true);
+            };
+
             const probe = document.createElement("div");
             probe.style.position = "absolute";
             probe.style.visibility = "hidden";
@@ -104,17 +119,42 @@ def _apply_print_break_policy(page) -> dict[str, int]:
 
             const elements = Array.from(document.querySelectorAll(targetSelectors.join(",")));
             const pageTitles = Array.from(document.querySelectorAll("div#page-title"));
+            const tableContainers = new Set();
+
+            for (const element of elements) {
+                if (element.tagName.toLowerCase() !== "table") {
+                    continue;
+                }
+
+                const container = element.closest("div.section.section-info");
+                if (container) {
+                    tableContainers.add(container);
+                }
+            }
 
             // Reset print-related inline styles so each run starts clean.
             for (const element of elements) {
                 setBreakInside(element, "auto");
             }
+            for (const container of tableContainers) {
+                setBreakInside(container, "auto");
+            }
             for (const title of pageTitles) {
                 setBreakBeforePage(title, false);
+            }
+            for (const container of tableContainers) {
+                const maybeHr = container.previousElementSibling;
+                if (maybeHr && maybeHr.tagName.toLowerCase() === "hr") {
+                    const maybeH2 = maybeHr.previousElementSibling;
+                    if (maybeH2 && maybeH2.tagName.toLowerCase() === "h2") {
+                        setBreakBeforePage(maybeH2, false);
+                    }
+                }
             }
 
             let keepTogetherApplied = 0;
             let forcedPageTitleBreaks = 0;
+            const appliedTargets = new Set();
 
             for (const title of pageTitles) {
                 const absoluteTop = getAbsoluteTop(title);
@@ -148,8 +188,22 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                     const shouldKeepTogether = blankRatio <= maxBlankRatioToKeep;
 
                     if (shouldKeepTogether) {
-                        setBreakInside(element, "avoid-page");
-                        keepTogetherApplied += 1;
+                        let target = element;
+                        if (element.tagName.toLowerCase() === "table") {
+                            const container = element.closest("div.section.section-info");
+                            if (container) {
+                                target = container;
+                            }
+                        }
+
+                        setBreakInside(target, "avoid-page");
+                        if (target !== element) {
+                            alignSectionHeadingWithContainerBreak(target);
+                        }
+                        if (!appliedTargets.has(target)) {
+                            appliedTargets.add(target);
+                            keepTogetherApplied += 1;
+                        }
                     }
                 }
             }
