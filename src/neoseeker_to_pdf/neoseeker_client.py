@@ -39,13 +39,10 @@ class NeoseekerClient:
 
     def get_chapter_urls(self, start_url: str) -> list[str]:
         chapters_cache = self._chapter_cache_file(start_url)
-        if os.path.exists(chapters_cache):
-            with open(chapters_cache, encoding="utf-8") as file:
-                cached_chapters = [line.strip() for line in file if line.strip()]
-
-            if cached_chapters:
-                print(f"Capitulos cargados desde cache: {len(cached_chapters)}")
-                return cached_chapters
+        cached_chapters = self._read_cache_lines(chapters_cache)
+        if cached_chapters:
+            print(f"Capitulos cargados desde cache: {len(cached_chapters)}")
+            return cached_chapters
 
         print("Abriendo navegador...")
 
@@ -74,8 +71,7 @@ class NeoseekerClient:
 
             browser.close()
 
-        with open(chapters_cache, "w", encoding="utf-8") as file:
-            file.write("\n".join(chapters))
+        self._write_cache_text(chapters_cache, "\n".join(chapters))
 
         return chapters
 
@@ -84,8 +80,7 @@ class NeoseekerClient:
         path = self._cache_file(decoded_url)
 
         if os.path.exists(path):
-            with open(path, encoding="utf-8") as file:
-                return file.read()
+            return self._read_cache_text(path)
 
         for attempt in range(self._retries):
             try:
@@ -98,8 +93,7 @@ class NeoseekerClient:
 
                 response.raise_for_status()
 
-                with open(path, "w", encoding="utf-8") as file:
-                    file.write(response.text)
+                self._write_cache_text(path, response.text)
 
                 return response.text
             except Exception:
@@ -107,6 +101,24 @@ class NeoseekerClient:
                     raise
 
         return ""
+
+    @staticmethod
+    def _read_cache_text(path: str) -> str:
+        with open(path, encoding="utf-8") as file:
+            return file.read()
+
+    @staticmethod
+    def _read_cache_lines(path: str) -> list[str]:
+        if not os.path.exists(path):
+            return []
+
+        with open(path, encoding="utf-8") as file:
+            return [line.strip() for line in file if line.strip()]
+
+    @staticmethod
+    def _write_cache_text(path: str, content: str) -> None:
+        with open(path, "w", encoding="utf-8") as file:
+            file.write(content)
 
     def _cache_file(self, url: str) -> str:
         return os.path.join(

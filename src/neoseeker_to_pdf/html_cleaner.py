@@ -4,38 +4,55 @@ import requests
 from bs4 import BeautifulSoup
 
 
+_REMOVE_SELECTORS = """
+    #comments,
+    .comments,
+    .comment,
+    .sidebar,
+    .ads,
+    .advertisement,
+    .ad-container,
+    .section-vu,
+    [class*='ad-'],
+    [id*='ad'],
+    [id*='inline']
+"""
+
+
+def _is_advertisement_block(tag) -> bool:
+    if tag.name not in ["div", "section"]:
+        return False
+
+    attrs = tag.attrs or {}
+    classes = " ".join(attrs.get("class", []))
+    tag_id = attrs.get("id", "")
+    text = tag.get_text(" ", strip=True).lower()
+
+    return (
+        "section-vu" in classes
+        or "sticky" in classes
+        or "inline" in tag_id.lower()
+        or "primis" in str(tag).lower()
+        or "advertisement" in text
+    )
+
+
+def _remove_ads(soup: BeautifulSoup) -> None:
+    for element in soup.select(_REMOVE_SELECTORS):
+        element.decompose()
+
+    for script in soup.find_all("script"):
+        if "primis" in str(script).lower() and script.parent:
+            script.parent.decompose()
+
+    for block in soup.find_all(_is_advertisement_block):
+        block.decompose()
+
+
 def clean_html(html: str, base_url: str) -> tuple[str, str, str]:
     soup = BeautifulSoup(html, "html.parser")
 
-    for element in soup.find_all("script"):
-        if "primis" in str(element).lower() and element.parent:
-            element.parent.decompose()
-
-    for element in soup.select(
-        """
-        #comments,
-        .comments,
-        .comment,
-        .sidebar,
-        .ads,
-        .advertisement,
-        .ad-container,
-        .section-vu,
-        [class*='ad-'],
-        [id*='ad'],
-        [id*='inline']
-        """
-    ):
-        element.decompose()
-
-    for div in soup.find_all("div"):
-        if "Advertisement" in div.get_text(" ", strip=True):
-            div.decompose()
-
-    for element in soup.find_all(
-        lambda tag: tag.name in ["div", "section"] and "Advertisement" in tag.get_text()
-    ):
-        element.decompose()
+    _remove_ads(soup)
 
     title = soup.select_one("#page-title")
     content = soup.select_one("#wiki-content")
@@ -55,22 +72,19 @@ def clean_html(html: str, base_url: str) -> tuple[str, str, str]:
         if anchor.find("img"):
             anchor.unwrap()
 
+    # Remove embedded videos (YouTube/Vimeo and similar iframe embeds).
+    for iframe in content.find_all("iframe"):
+        iframe.decompose()
+
+    # Remove now-empty wrappers left by embed cleanup.
+    for paragraph in content.find_all("p"):
+        if not paragraph.get_text("", strip=True) and not paragraph.find(["img", "table"]):
+            paragraph.decompose()
+
     css = _download_stylesheets(soup, base_url)
 
-    for div in content.find_all("div"):
-        attrs = div.attrs or {}
-        classes = " ".join(attrs.get("class", []))
-        div_id = attrs.get("id", "")
-        text = div.get_text(" ", strip=True).lower()
-
-        if (
-            "section-vu" in classes
-            or "sticky" in classes
-            or "inline" in div_id.lower()
-            or "primis" in str(div).lower()
-            or "advertisement" in text
-        ):
-            div.decompose()
+    for block in content.find_all(_is_advertisement_block):
+        block.decompose()
 
     return str(title) if title else "", content.decode_contents(), css
 

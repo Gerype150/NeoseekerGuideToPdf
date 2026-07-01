@@ -1,9 +1,10 @@
-guide.html
-Dragon Quest XI Walkthrough.pdf
+*.html
+*.pdf
 
 # Python virtual environments
 .venv/
 venv/
+
 
 # Python bytecode and caches
 __pycache__/

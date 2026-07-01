@@ -113,46 +113,26 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                 setBreakBeforePage(title, false);
             }
 
-            const candidateSelector = [
-                "div#page-title",
-                ...targetSelectors,
-            ].join(",");
-            const orderedNodes = Array.from(document.querySelectorAll(candidateSelector));
-
-            const events = orderedNodes.flatMap((element) => {
-                if (element.matches("div#page-title")) {
-                    return [{ type: "pageTitle", element }];
-                }
-
-                if (element.matches(targetSelectors.join(","))) {
-                    return [{ type: "keepCandidate", element }];
-                }
-
-                return [];
-            });
-
             let keepTogetherApplied = 0;
             let forcedPageTitleBreaks = 0;
-            for (const event of events) {
-                const element = event.element;
+
+            for (const title of pageTitles) {
+                const absoluteTop = getAbsoluteTop(title);
+                const offsetInPage = getOffsetInPage(absoluteTop, pageHeightPx);
+                const shouldBreak = offsetInPage > 0;
+
+                setBreakBeforePage(title, shouldBreak);
+                if (shouldBreak) {
+                    forcedPageTitleBreaks += 1;
+                }
+            }
+
+            for (const element of elements) {
                 const rect = element.getBoundingClientRect();
                 const elementHeight = rect.height;
                 const absoluteTop = getAbsoluteTop(element);
                 const offsetInPage = getOffsetInPage(absoluteTop, pageHeightPx);
                 const remainingOnPage = getSpaceToNextPage(offsetInPage, pageHeightPx);
-
-                if (event.type === "pageTitle") {
-                    const shouldBreak = offsetInPage > 0;
-                    setBreakBeforePage(element, shouldBreak);
-                    if (shouldBreak) {
-                        forcedPageTitleBreaks += 1;
-                    }
-                    continue;
-                }
-
-                if (event.type !== "keepCandidate") {
-                    continue;
-                }
 
                 if (elementHeight <= 0) {
                     continue;
