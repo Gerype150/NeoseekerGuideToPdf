@@ -1,6 +1,9 @@
 import os
+from io import BytesIO
 
+from pypdf import PdfReader, PdfWriter
 from playwright.sync_api import sync_playwright
+from reportlab.pdfgen import canvas
 
 
 def _wait_for_images(page) -> None:
@@ -90,6 +93,43 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                 element.style.setProperty("page-break-before", legacyValue, "important");
             };
 
+            const getImageOnlyBlockImage = (element) => {
+                if (!element) {
+                    return null;
+                }
+
+                const tag = element.tagName.toLowerCase();
+                if (tag !== "p" && tag !== "center") {
+                    return null;
+                }
+
+                const text = element.textContent || "";
+                if (text.trim()) {
+                    return null;
+                }
+
+                const images = Array.from(element.querySelectorAll("img"));
+                if (images.length !== 1) {
+                    return null;
+                }
+
+                return images[0];
+            };
+
+            const getHeadingForSiblingBlock = (block) => {
+                const maybeHr = block.previousElementSibling;
+                if (!maybeHr || maybeHr.tagName.toLowerCase() !== "hr") {
+                    return null;
+                }
+
+                const maybeH2 = maybeHr.previousElementSibling;
+                if (!maybeH2 || maybeH2.tagName.toLowerCase() !== "h2") {
+                    return null;
+                }
+
+                return maybeH2;
+            };
+
             const alignSectionHeadingWithContainerBreak = (container) => {
                 const maybeHr = container.previousElementSibling;
                 if (!maybeHr || maybeHr.tagName.toLowerCase() !== "hr") {
@@ -120,6 +160,7 @@ def _apply_print_break_policy(page) -> dict[str, int]:
             const elements = Array.from(document.querySelectorAll(targetSelectors.join(",")));
             const pageTitles = Array.from(document.querySelectorAll("div#page-title"));
             const tableContainers = new Set();
+            const headingImageBlocks = [];
 
             for (const element of elements) {
                 if (element.tagName.toLowerCase() !== "table") {
@@ -130,6 +171,20 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                 if (container) {
                     tableContainers.add(container);
                 }
+            }
+
+            for (const block of Array.from(document.querySelectorAll("p, center"))) {
+                const image = getImageOnlyBlockImage(block);
+                if (!image) {
+                    continue;
+                }
+
+                const heading = getHeadingForSiblingBlock(block);
+                if (!heading) {
+                    continue;
+                }
+
+                headingImageBlocks.push({ block, image, heading });
             }
 
             // Reset print-related inline styles so each run starts clean.
@@ -151,10 +206,15 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                     }
                 }
             }
+            for (const item of headingImageBlocks) {
+                setBreakBeforePage(item.heading, false);
+            }
 
             let keepTogetherApplied = 0;
             let forcedPageTitleBreaks = 0;
+            let forcedHeadingBreaks = 0;
             const appliedTargets = new Set();
+            const headingBreakSet = new Set();
 
             for (const title of pageTitles) {
                 const absoluteTop = getAbsoluteTop(title);
@@ -164,6 +224,26 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                 setBreakBeforePage(title, shouldBreak);
                 if (shouldBreak) {
                     forcedPageTitleBreaks += 1;
+                }
+            }
+
+            for (const item of headingImageBlocks) {
+                const imageRect = item.image.getBoundingClientRect();
+                const imageHeight = imageRect.height;
+                if (imageHeight <= 0 || imageHeight >= pageHeightPx * 0.98) {
+                    continue;
+                }
+
+                const blockTop = getAbsoluteTop(item.block);
+                const offsetInPage = getOffsetInPage(blockTop, pageHeightPx);
+                const remainingOnPage = getSpaceToNextPage(offsetInPage, pageHeightPx);
+
+                if (imageHeight > remainingOnPage) {
+                    setBreakBeforePage(item.heading, true);
+                    if (!headingBreakSet.has(item.heading)) {
+                        headingBreakSet.add(item.heading);
+                        forcedHeadingBreaks += 1;
+                    }
                 }
             }
 
@@ -212,14 +292,159 @@ def _apply_print_break_policy(page) -> dict[str, int]:
                 candidates: elements.length,
                 keepTogetherApplied,
                 forcedPageTitleBreaks,
-                forcedHeadingBreaks: 0,
+                forcedHeadingBreaks,
             };
         }
         """
     )
 
 
-def generate_pdf(html_file: str, output_pdf: str) -> None:
+def _collect_chapter_page_starts(page, margin_top_mm: float, margin_bottom_mm: float) -> list[dict[str, int | str]]:
+    return page.evaluate(
+        """
+        ({ marginTopMm, marginBottomMm }) => {
+            const mmProbe = document.createElement("div");
+            mmProbe.style.position = "absolute";
+            mmProbe.style.visibility = "hidden";
+            mmProbe.style.pointerEvents = "none";
+            mmProbe.style.height = "1mm";
+            mmProbe.style.left = "0";
+            mmProbe.style.top = "0";
+            document.body.appendChild(mmProbe);
+            const pxPerMm = mmProbe.getBoundingClientRect().height || 3.78;
+            mmProbe.remove();
+
+            const pageProbe = document.createElement("div");
+            pageProbe.style.position = "absolute";
+            pageProbe.style.visibility = "hidden";
+            pageProbe.style.pointerEvents = "none";
+            pageProbe.style.height = "297mm";
+            pageProbe.style.left = "0";
+            pageProbe.style.top = "0";
+            document.body.appendChild(pageProbe);
+            const pageHeightPx = pageProbe.getBoundingClientRect().height || 1122;
+            pageProbe.remove();
+
+            const printableHeightPx = Math.max(
+                1,
+                pageHeightPx - (marginTopMm * pxPerMm) - (marginBottomMm * pxPerMm),
+            );
+
+            const chapters = Array.from(document.querySelectorAll("section.chapter"));
+            const result = [];
+            let lastPage = -1;
+
+            for (let index = 0; index < chapters.length; index += 1) {
+                const section = chapters[index];
+                const heading = section.querySelector("h1, h2, h3, h4, h5, h6");
+                const title = (heading?.textContent || section.getAttribute("id") || `Capitulo ${index + 1}`).trim();
+                const top = section.getBoundingClientRect().top + window.scrollY;
+                const pageNumber = Math.max(1, Math.floor(top / printableHeightPx) + 1);
+
+                if (pageNumber <= lastPage) {
+                    continue;
+                }
+
+                result.push({ title, page: pageNumber });
+                lastPage = pageNumber;
+            }
+
+            if (result.length === 0) {
+                result.push({ title: "Neoseeker Walkthrough", page: 1 });
+            }
+
+            return result;
+        }
+        """,
+        {
+            "marginTopMm": margin_top_mm,
+            "marginBottomMm": margin_bottom_mm,
+        },
+    )
+
+
+def _mm_to_points(mm: float) -> float:
+    return mm * 72.0 / 25.4
+
+
+def _resolve_chapter_for_page(chapter_starts: list[dict[str, int | str]], page_number: int) -> str:
+    active_title = str(chapter_starts[0]["title"])
+    for item in chapter_starts:
+        if page_number >= int(item["page"]):
+            active_title = str(item["title"])
+        else:
+            break
+    return active_title
+
+
+def _build_overlay_page(
+    width_pt: float,
+    height_pt: float,
+    chapter_title: str,
+    page_number: int,
+    margin_top_mm: float,
+    margin_bottom_mm: float,
+) -> bytes:
+    packet = BytesIO()
+    overlay = canvas.Canvas(packet, pagesize=(width_pt, height_pt))
+    overlay.setFont("Times-Roman", 10)
+    overlay.setFillColorRGB(0.23, 0.23, 0.23)
+
+    top_margin_pt = _mm_to_points(margin_top_mm)
+    bottom_margin_pt = _mm_to_points(margin_bottom_mm)
+
+    header_y = max(height_pt - top_margin_pt + 8, height_pt - (top_margin_pt / 2.0))
+    footer_y = max(6, bottom_margin_pt / 2.0)
+
+    overlay.drawCentredString(width_pt / 2.0, header_y, chapter_title)
+    overlay.drawCentredString(width_pt / 2.0, footer_y, str(page_number))
+    overlay.save()
+
+    packet.seek(0)
+    return packet.read()
+
+
+def _write_annotated_pdf(
+    base_pdf_bytes: bytes,
+    output_pdf: str,
+    chapter_starts: list[dict[str, int | str]],
+    margin_top_mm: float,
+    margin_bottom_mm: float,
+) -> None:
+    reader = PdfReader(BytesIO(base_pdf_bytes))
+    writer = PdfWriter()
+
+    for index, source_page in enumerate(reader.pages, start=1):
+        page_width = float(source_page.mediabox.width)
+        page_height = float(source_page.mediabox.height)
+        chapter_title = _resolve_chapter_for_page(chapter_starts, index)
+
+        overlay_bytes = _build_overlay_page(
+            page_width,
+            page_height,
+            chapter_title,
+            index,
+            margin_top_mm,
+            margin_bottom_mm,
+        )
+        overlay_reader = PdfReader(BytesIO(overlay_bytes))
+        overlay_page = overlay_reader.pages[0]
+
+        source_page.merge_page(overlay_page)
+        writer.add_page(source_page)
+
+    with open(output_pdf, "wb") as output_stream:
+        writer.write(output_stream)
+
+
+def generate_pdf(
+    html_file: str,
+    output_pdf: str,
+    margin_top_mm: float = 20.0,
+    margin_bottom_mm: float = 16.0,
+    margin_left_mm: float = 14.0,
+    margin_right_mm: float = 14.0,
+) -> None:
     print("Generando PDF...")
 
     with sync_playwright() as playwright:
@@ -243,13 +468,28 @@ def generate_pdf(html_file: str, output_pdf: str) -> None:
             f"pageTitleBreaks={policy_stats['forcedPageTitleBreaks']},",
             f"h2Breaks={policy_stats['forcedHeadingBreaks']}",
         )
+        chapter_starts = _collect_chapter_page_starts(page, margin_top_mm, margin_bottom_mm)
+        print("Cabecera/Pie: capitulos dinamicos por pagina en margen")
+        print(f"Capitulos detectados: {len(chapter_starts)}")
         page.wait_for_timeout(1000)
         try:
-            page.pdf(
-                path=output_pdf,
+            base_pdf_bytes = page.pdf(
                 format="A4",
+                margin={
+                    "top": f"{margin_top_mm}mm",
+                    "bottom": f"{margin_bottom_mm}mm",
+                    "left": f"{margin_left_mm}mm",
+                    "right": f"{margin_right_mm}mm",
+                },
                 print_background=True,
                 prefer_css_page_size=True,
+            )
+            _write_annotated_pdf(
+                base_pdf_bytes=base_pdf_bytes,
+                output_pdf=output_pdf,
+                chapter_starts=chapter_starts,
+                margin_top_mm=margin_top_mm,
+                margin_bottom_mm=margin_bottom_mm,
             )
         except PermissionError as exc:
             raise PermissionError(

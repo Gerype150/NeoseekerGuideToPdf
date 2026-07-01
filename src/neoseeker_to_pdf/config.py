@@ -13,6 +13,10 @@ class AppConfig:
     guide_file: str = "guide.html"
     static_css_file: str = "neoseeker.css"
     wait_for_cloudflare_input: bool = False
+    pdf_margin_top_mm: float = 20.0
+    pdf_margin_bottom_mm: float = 16.0
+    pdf_margin_left_mm: float = 14.0
+    pdf_margin_right_mm: float = 14.0
 
 
 def load_config(path: str = "config.json") -> AppConfig:
@@ -29,4 +33,8 @@ def load_config(path: str = "config.json") -> AppConfig:
         guide_file=data.get("guide_file", "guide.html"),
         static_css_file=data.get("static_css_file", "neoseeker.css"),
         wait_for_cloudflare_input=data.get("wait_for_cloudflare_input", False),
+        pdf_margin_top_mm=data.get("pdf_margin_top_mm", 20.0),
+        pdf_margin_bottom_mm=data.get("pdf_margin_bottom_mm", 16.0),
+        pdf_margin_left_mm=data.get("pdf_margin_left_mm", 14.0),
+        pdf_margin_right_mm=data.get("pdf_margin_right_mm", 14.0),
     )

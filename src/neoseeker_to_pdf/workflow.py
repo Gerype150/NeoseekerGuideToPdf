@@ -108,4 +108,11 @@ def build_guide_html(config: AppConfig) -> str:
 
 
 def build_pdf(config: AppConfig) -> None:
-    generate_pdf(config.guide_file, config.output_pdf)
+    generate_pdf(
+        config.guide_file,
+        config.output_pdf,
+        margin_top_mm=config.pdf_margin_top_mm,
+        margin_bottom_mm=config.pdf_margin_bottom_mm,
+        margin_left_mm=config.pdf_margin_left_mm,
+        margin_right_mm=config.pdf_margin_right_mm,
+    )

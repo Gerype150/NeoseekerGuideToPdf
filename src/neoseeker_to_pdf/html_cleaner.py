@@ -72,6 +72,34 @@ def clean_html(html: str, base_url: str) -> tuple[str, str, str]:
         if anchor.find("img"):
             anchor.unwrap()
 
+    # Replace spoiler widgets with their expanded textual content.
+    for spoiler_header in content.select(".spoiler_header"):
+        visible_spoiler = spoiler_header.select_one(".show_spoiler")
+        if not visible_spoiler:
+            spoiler_header.decompose()
+            continue
+
+        replacement = soup.new_tag("div")
+        replacement["class"] = ["show_spoiler"]
+        for child in list(visible_spoiler.contents):
+            replacement.append(child.extract())
+
+        spoiler_header.replace_with(replacement)
+
+    # Remove script-driven spoiler toggles left by the source page.
+    for script in content.find_all("script"):
+        script_text = (script.get_text() or "").lower()
+        if (
+            "js_spoiler" in script_text
+            or "flipshow" in script_text
+            or "find_spoiler_root" in script_text
+        ):
+            script.decompose()
+
+    # Unwrap hidden spoiler containers once their visible content was extracted.
+    for spoiler in content.select("div.spoiler"):
+        spoiler.unwrap()
+
     # Remove embedded videos (YouTube/Vimeo and similar iframe embeds).
     for iframe in content.find_all("iframe"):
         iframe.decompose()
