@@ -1,5 +1,7 @@
 import os
+import re
 import shutil
+from html import escape
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -41,6 +43,23 @@ def _rewrite_internal_links(content_html: str, current_url: str, chapter_map: di
     return soup.decode_contents()
 
 
+def _extract_title_text(title_html: str, index: int) -> str:
+    soup = BeautifulSoup(title_html, "html.parser")
+    text = soup.get_text(" ", strip=True)
+    if not text:
+        return f"Capitulo {index}"
+
+    # Remove the repeated game title prefix from TOC labels.
+    text = re.sub(
+        r"^Dragon\s+Quest\s+XI:\s*Echoes\s+of\s+an\s+Elusive\s+Age\s*[-:|]?\s*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    return text or f"Capitulo {index}"
+
+
 def build_guide_html(config: AppConfig) -> str:
     runtime_dirs = [config.cache_dir, config.chrome_profile_dir]
 
@@ -74,8 +93,9 @@ def build_guide_html(config: AppConfig) -> str:
             "</style>",
             "</head>",
             "<body>",
-            "<h1>Neoseeker Walkthrough</h1>",
         ]
+        toc_entries: list[tuple[str, str]] = []
+        chapter_sections: list[str] = []
 
         for index, chapter_url in enumerate(chapters, start=1):
             print(f"Procesando {index}/{len(chapters)}")
@@ -87,7 +107,9 @@ def build_guide_html(config: AppConfig) -> str:
             title, content, chapter_css = clean_html(raw_html, chapter_url)
             chapter_anchor = chapter_anchor_map[_normalize_guide_url(chapter_url)]
             rewritten_content = _rewrite_internal_links(content, chapter_url, chapter_anchor_map)
-            output.extend(
+            chapter_title = _extract_title_text(title, index)
+            toc_entries.append((chapter_anchor, chapter_title))
+            chapter_sections.extend(
                 [
                     chapter_css,
                     f"<section class=\"chapter\" id=\"{chapter_anchor}\">",
@@ -96,6 +118,47 @@ def build_guide_html(config: AppConfig) -> str:
                     "</section>",
                 ]
             )
+
+        output.extend(
+            [
+                "<section class=\"toc\" id=\"table-of-contents\" style=\"page-break-after: always;\">",
+                "<h1>Index</h1>",
+                "<style>",
+                ".toc-list { list-style: none; padding: 0; margin: 0; }",
+                ".toc-item { margin: 0.1rem 0; padding: 0.1rem 0.35rem; border-radius: 2px; }",
+                ".toc-item:nth-child(odd) { background-color: rgba(34, 42, 58, 0.04); }",
+                ".toc-link {",
+                "  color: inherit;",
+                "  text-decoration: none;",
+                "  font-weight: 700;",
+                "  display: grid;",
+                "  grid-template-columns: 3ch auto 1fr auto;",
+                "  align-items: baseline;",
+                "  column-gap: 0.35rem;",
+                "}",
+                ".toc-index { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; }",
+                ".toc-title { margin-left: 1.15rem; }",
+                ".toc-dots { border-bottom: 1px dotted rgba(25, 25, 25, 0.45); margin: 0 0.25rem 0.25rem 0.2rem; }",
+                ".toc-page { min-width: 3ch; text-align: right; font-variant-numeric: tabular-nums; }",
+                "</style>",
+                "<ol class=\"toc-list\">",
+            ]
+        )
+        for index, (chapter_anchor, chapter_title) in enumerate(toc_entries, start=1):
+            output.append(
+                (
+                    f"<li class=\"toc-item\" data-chapter-anchor=\"{chapter_anchor}\">"
+                    f"<a class=\"toc-link\" href=\"#{chapter_anchor}\">"
+                    f"<span class=\"toc-index\">{index:02d}</span>"
+                    f"<span class=\"toc-title\">{escape(chapter_title)}</span>"
+                    "<span class=\"toc-dots\"></span>"
+                    "<span class=\"toc-page\">--</span>"
+                    "</a>"
+                    "</li>"
+                )
+            )
+        output.extend(["</ol>", "</section>"])
+        output.extend(chapter_sections)
 
         output.extend(["</body>", "</html>"])
         write_text(config.guide_file, "\n".join(output))
