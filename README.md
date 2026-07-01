@@ -9,6 +9,9 @@
 > Descarga una guia completa de Neoseeker, la limpia y genera un PDF final con tabla de contenidos.
 
 ---
+Este proyecto nació porque adoro las guías físicas de los JRPG largos, y no hay guía física del Dragon Quest XI.
+Como la única guía decente era por internet pero llena de anuncios y links, hice este script para tener un pdf que imprimir.
+El resultado no es perfecto, ya que es una plantilla para las guías de la página web y cada una tiene estilos algo distintos, pero es suficientemente bueno para imprimir.
 
 ## Qué hace este proyecto
 
