@@ -9,11 +9,13 @@
 > Downloads a full Neoseeker guide, cleans it up, and generates a final PDF with a table of contents.
 
 ---
-Este proyecto nació porque adoro las guías físicas de los JRPG largos, y no hay guía física del Dragon Quest XI.
+This project was born from my love of physical strategy guides for long JRPGs, and because there isn't an official physical guide for Dragon Quest XI.
 
-Como la única guía decente era por internet pero llena de anuncios y links, hice este script para tener un pdf que imprimir.
+Since the only decent guide was available online and cluttered with ads and links, I wrote this script to generate a printable PDF.
 
-El resultado no es perfecto, ya que es una plantilla para las guías de la página web y cada una tiene estilos algo distintos, pero es suficientemente bueno para imprimir.
+The result isn't perfect, as the template has to work with guides that use slightly different styles, but it's good enough to produce a clean, printable version.
+
+Enjoy!!
 
 ## What this project does
 
