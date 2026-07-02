@@ -1061,7 +1061,7 @@ def generate_pdf(
     margin_left_mm: float = 14.0,
     margin_right_mm: float = 14.0,
 ) -> None:
-    print("Generando PDF...")
+    print("Generating PDF...")
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
@@ -1076,6 +1076,7 @@ def generate_pdf(
         page.wait_for_load_state("networkidle", timeout=120000)
         _wait_for_images(page)
         page.emulate_media(media="print")
+        _apply_print_break_policy(page)
         chapter_metadata = _collect_chapter_metadata(page)
         first_pass_pdf_bytes = page.pdf(
             format="A4",
@@ -1095,8 +1096,8 @@ def generate_pdf(
             chapter_starts = _collect_chapter_page_starts_by_layout(page, margin_top_mm, margin_bottom_mm)
 
         toc_updated = _apply_toc_page_numbers(page, chapter_starts)
-        print(f"Capitulos detectados: {len(chapter_starts)}")
-        print(f"Indice actualizado con paginas: {toc_updated}")
+        print(f"Chapters detected: {len(chapter_starts)}")
+        print(f"TOC updated with pages: {toc_updated}")
         page.wait_for_timeout(1000)
         try:
             base_pdf_bytes = page.pdf(
@@ -1119,9 +1120,9 @@ def generate_pdf(
             )
         except PermissionError as exc:
             raise PermissionError(
-                f"No se pudo escribir '{output_pdf}'. Cierra el PDF si esta abierto e intenta de nuevo."
+                f"Could not write '{output_pdf}'. Close the PDF if it is open and try again."
             ) from exc
 
         browser.close()
 
-    print("PDF creado")
+    print("PDF created successfully:")

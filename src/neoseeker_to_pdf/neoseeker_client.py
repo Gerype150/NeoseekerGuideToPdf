@@ -1,4 +1,3 @@
-import hashlib
 import os
 from urllib.parse import unquote
 
@@ -10,12 +9,10 @@ from playwright.sync_api import sync_playwright
 class NeoseekerClient:
     def __init__(
         self,
-        cache_dir: str,
         retries: int,
         profile_dir: str,
         wait_for_cloudflare_input: bool = False,
     ) -> None:
-        self._cache_dir = cache_dir
         self._retries = retries
         self._profile_dir = profile_dir
         self._wait_for_cloudflare_input = wait_for_cloudflare_input
@@ -35,16 +32,9 @@ class NeoseekerClient:
                 "Accept-Language": "en-US,en;q=0.9",
             }
         )
-        os.makedirs(self._cache_dir, exist_ok=True)
 
     def get_chapter_urls(self, start_url: str) -> list[str]:
-        chapters_cache = self._chapter_cache_file(start_url)
-        cached_chapters = self._read_cache_lines(chapters_cache)
-        if cached_chapters:
-            print(f"Capitulos cargados desde cache: {len(cached_chapters)}")
-            return cached_chapters
-
-        print("Abriendo navegador...")
+        print("Opening browser...")
 
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch_persistent_context(
@@ -61,26 +51,19 @@ class NeoseekerClient:
             else:
                 self._wait_for_chapter_page_ready(page, start_url)
 
-            self._copy_cookies(browser)
             chapters = self._extract_chapters(page, start_url)
 
             if not chapters:
-                print("No se detectaron capitulos al primer intento. Reintentando...")
+                print("No chapters detected on the first attempt. Retrying...")
                 page.wait_for_timeout(5000)
                 chapters = self._extract_chapters(page, start_url)
 
             browser.close()
 
-        self._write_cache_text(chapters_cache, "\n".join(chapters))
-
         return chapters
 
     def get_page_html(self, url: str) -> str:
         decoded_url = unquote(url)
-        path = self._cache_file(decoded_url)
-
-        if os.path.exists(path):
-            return self._read_cache_text(path)
 
         for attempt in range(self._retries):
             try:
@@ -88,12 +71,10 @@ class NeoseekerClient:
                 print(response.status_code, decoded_url)
 
                 if response.status_code in [403, 404]:
-                    print("Saltando:", response.status_code, decoded_url)
+                    print("Skipping:", response.status_code, decoded_url)
                     return ""
 
                 response.raise_for_status()
-
-                self._write_cache_text(path, response.text)
 
                 return response.text
             except Exception:
@@ -102,47 +83,6 @@ class NeoseekerClient:
 
         return ""
 
-    @staticmethod
-    def _read_cache_text(path: str) -> str:
-        with open(path, encoding="utf-8") as file:
-            return file.read()
-
-    @staticmethod
-    def _read_cache_lines(path: str) -> list[str]:
-        if not os.path.exists(path):
-            return []
-
-        with open(path, encoding="utf-8") as file:
-            return [line.strip() for line in file if line.strip()]
-
-    @staticmethod
-    def _write_cache_text(path: str, content: str) -> None:
-        with open(path, "w", encoding="utf-8") as file:
-            file.write(content)
-
-    def _cache_file(self, url: str) -> str:
-        return os.path.join(
-            self._cache_dir,
-            hashlib.md5(url.encode()).hexdigest() + ".html",
-        )
-
-    def _chapter_cache_file(self, start_url: str) -> str:
-        digest = hashlib.md5(start_url.encode()).hexdigest()
-        return os.path.join(self._cache_dir, f"chapters_{digest}.txt")
-
-    def _copy_cookies(self, browser_context) -> None:
-        cookies = browser_context.cookies()
-
-        for cookie in cookies:
-            self._session.cookies.set(
-                cookie["name"],
-                cookie["value"],
-                domain=cookie.get("domain"),
-                path=cookie.get("path"),
-            )
-
-        print("Cookies copiadas:", len(cookies))
-
     def _wait_for_chapter_page_ready(self, page, start_url: str) -> None:
         # Some pages keep long-lived network requests open, so networkidle can time out.
         page.wait_for_timeout(3000)
@@ -150,18 +90,18 @@ class NeoseekerClient:
         try:
             page.wait_for_load_state("load", timeout=20000)
         except PlaywrightTimeoutError:
-            print("Aviso: timeout esperando 'load'; continuando con HTML parcial.")
+            print("Warning: timeout waiting for 'load'; continuing with partial HTML.")
 
         try:
             page.wait_for_load_state("networkidle", timeout=5000)
         except PlaywrightTimeoutError:
-            print("Aviso: 'networkidle' no alcanzado; continuando sin bloquear.")
+            print("Warning: 'networkidle' not reached; continuing without blocking.")
 
         chapter_prefix = self._chapter_prefix(start_url)
         try:
             page.wait_for_selector(f'a[href^="{chapter_prefix}"]', timeout=20000)
         except PlaywrightTimeoutError:
-            print("Aviso: no se confirmaron enlaces de capitulos por selector.")
+            print("Warning: no chapter links confirmed by selector.")
 
     @staticmethod
     def _chapter_prefix(start_url: str) -> str:

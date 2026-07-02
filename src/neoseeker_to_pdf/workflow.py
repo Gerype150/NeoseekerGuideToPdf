@@ -72,13 +72,12 @@ def build_guide_html(config: AppConfig) -> str:
 
     try:
         client = NeoseekerClient(
-            cache_dir=config.cache_dir,
             retries=config.retries,
             profile_dir=config.chrome_profile_dir,
             wait_for_cloudflare_input=config.wait_for_cloudflare_input,
         )
         chapters = client.get_chapter_urls(config.url)
-        print(f"{len(chapters)} capitulos encontrados")
+        print(f"{len(chapters)} chapters detected.")
 
         chapter_anchor_map = {
             _normalize_guide_url(chapter_url): f"chapter-{index:03d}"
@@ -102,7 +101,7 @@ def build_guide_html(config: AppConfig) -> str:
         chapter_sections: list[str] = []
 
         for index, chapter_url in enumerate(chapters, start=1):
-            print(f"Procesando {index}/{len(chapters)}")
+            print(f"Processing {index}/{len(chapters)}")
 
             raw_html = client.get_page_html(chapter_url)
             if not raw_html:
@@ -166,7 +165,7 @@ def build_guide_html(config: AppConfig) -> str:
 
         output.extend(["</body>", "</html>"])
         write_text(config.guide_file, "\n".join(output))
-        print("HTML generado:", config.guide_file)
+        print("HTML generated:", config.guide_file)
 
         return config.guide_file
     finally:

@@ -8,19 +8,19 @@ from src.neoseeker_to_pdf.runner import run_build_guide, run_generate_pdf
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Construye el HTML de Neoseeker y genera el PDF. "
-            "Si guide.html ya existe, por defecto lo reutiliza."
+            "Builds the Neoseeker HTML and generates the PDF. "
+            "If guide.html already exists, it will be reused by default."
         )
     )
     parser.add_argument(
         "--config",
         default="config.json",
-        help="Ruta al archivo de configuracion.",
+        help="Path to the configuration file (default: config.json).",
     )
     parser.add_argument(
         "--rebuild-html",
         action="store_true",
-        help="Fuerza reconstruccion del HTML aunque ya exista.",
+        help="Forces HTML rebuild even if it already exists.",
     )
     return parser.parse_args()
 
@@ -34,6 +34,6 @@ if __name__ == "__main__":
     if should_build_html:
         run_build_guide(args.config)
     else:
-        print(f"Reutilizando HTML existente: {config.guide_file}")
+        print(f"Reusing existing HTML: {config.guide_file}")
 
     run_generate_pdf(args.config)
