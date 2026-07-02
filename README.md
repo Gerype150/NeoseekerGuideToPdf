@@ -3,31 +3,31 @@
 <p align="center">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-1f6feb?style=for-the-badge&logo=python&logoColor=white">
   <img alt="Playwright" src="https://img.shields.io/badge/Playwright-Chromium-2da44e?style=for-the-badge&logo=playwright&logoColor=white">
-  <img alt="Estado" src="https://img.shields.io/badge/Estado-Listo_para_usar-f0883e?style=for-the-badge">
+  <img alt="Status" src="https://img.shields.io/badge/Status-Ready_to_use-f0883e?style=for-the-badge">
 </p>
 
-> Descarga una guia completa de Neoseeker, la limpia y genera un PDF final con tabla de contenidos.
+> Downloads a full Neoseeker guide, cleans it up, and generates a final PDF with a table of contents.
 
 ---
 
-## Qué hace este proyecto
+## What this project does
 
-Este repo automatiza 2 fases:
+This repo automates 2 phases:
 
-1. Construye un `guide.html` unificado desde una guía de Neoseeker.
-2. Genera un PDF final (`output`) a partir de ese HTML.
+1. Builds a unified `guide.html` from a Neoseeker guide.
+2. Generates a final PDF (`output`) from that HTML.
 
-Por defecto, si `guide.html` ya existe, lo reutiliza para ahorrar tiempo.
+By default, if `guide.html` already exists, it is reused to save time.
 
 ---
 
-## Requisitos
+## Requirements
 
-- Python 3.10 o superior
-- Windows (probado), Linux o macOS
-- Conexión a internet
+- Python 3.10 or higher
+- Windows (tested), Linux or macOS
+- Internet connection
 
-Dependencias Python usadas por el proyecto:
+Python dependencies used by the project:
 
 - `requests`
 - `beautifulsoup4`
@@ -37,22 +37,22 @@ Dependencias Python usadas por el proyecto:
 
 ---
 
-## Instalación rápida
+## Quick setup
 
-### 1) Clonar el repositorio
+### 1) Clone the repository
 
 ```bash
-git clone <URL_DE_TU_REPO>
+git clone <YOUR_REPO_URL>
 cd NeoseekerToPdf
 ```
 
-### 2) Crear entorno virtual
+### 2) Create a virtual environment
 
 ```bash
 python -m venv .venv
 ```
 
-Activar entorno:
+Activate the environment:
 
 - Windows (PowerShell):
 
@@ -66,13 +66,13 @@ Activar entorno:
 source .venv/bin/activate
 ```
 
-### 3) Instalar dependencias
+### 3) Install dependencies
 
 ```bash
 pip install requests beautifulsoup4 playwright pypdf reportlab
 ```
 
-### 4) Instalar navegador de Playwright (Chromium)
+### 4) Install the Playwright browser (Chromium)
 
 ```bash
 python -m playwright install chromium
@@ -80,9 +80,9 @@ python -m playwright install chromium
 
 ---
 
-## Configuración
+## Configuration
 
-Edita `config.json`:
+Edit `config.json`:
 
 ```json
 {
@@ -96,84 +96,84 @@ Edita `config.json`:
 }
 ```
 
-### Campos principales
+### Main fields
 
-| Campo | Descripcion |
+| Field | Description |
 |---|---|
-| `url` | URL de la guía de Neoseeker que quieres descargar |
-| `output` | Nombre del PDF final |
-| `wait_for_cloudflare_input` | Si es `true`, abre navegador y espera ENTER manual tras pasar Cloudflare, por si la página te pide captcha |
-| `pdf_margin_*_mm` | Márgenes del PDF en milímetros |
+| `url` | URL of the Neoseeker guide you want to download |
+| `output` | Name of the final PDF |
+| `wait_for_cloudflare_input` | If `true`, opens the browser and waits for manual ENTER after passing Cloudflare, in case the page requires a captcha |
+| `pdf_margin_*_mm` | PDF margins in millimeters |
 
 ---
 
-## Cómo descargar la guia y generar el PDF
+## How to download the guide and generate the PDF
 
-### Flujo recomendado (automático)
+### Recommended flow (automatic)
 
 ```bash
 python neoseeker_to_pdf.py
 ```
 
-Esto hace lo siguiente:
+This does the following:
 
-1. Si `guide.html` no existe, lo construye desde Neoseeker.
-2. Si ya existe, lo reutiliza.
-3. Genera el PDF definido en `output`.
+1. If `guide.html` does not exist, it builds it from Neoseeker.
+2. If it already exists, it reuses it.
+3. Generates the PDF defined in `output`.
 
-### Forzar reconstrucción del HTML
-
-```bash
-python neoseeker_to_pdf.py --rebuild-html
-```
-
-Usa esta opción cuando cambies la `url` o quieras refrescar capítulos/cache.
-
-### Usar otro archivo de configuración
-
-```bash
-python neoseeker_to_pdf.py --config mi_config.json
-```
-
----
-
-## Ejemplo completo
-
-1. Cambia `url` y `output` en `config.json`.
-2. Ejecuta:
+### Force HTML rebuild
 
 ```bash
 python neoseeker_to_pdf.py --rebuild-html
 ```
 
-3. Espera a que termine.
-4. Abre el archivo PDF generado (por ejemplo, `DQXI.pdf`).
+Use this option when you change the `url` or want to refresh chapters/cache.
+
+### Use a different configuration file
+
+```bash
+python neoseeker_to_pdf.py --config my_config.json
+```
 
 ---
 
-## Solución de problemas
+## Full example
 
-### No encuentra Playwright o Chromium
+1. Change `url` and `output` in `config.json`.
+2. Run:
 
-Ejecuta:
+```bash
+python neoseeker_to_pdf.py --rebuild-html
+```
+
+3. Wait for it to finish.
+4. Open the generated PDF file (e.g., `DQXI.pdf`).
+
+---
+
+## Troubleshooting
+
+### Playwright or Chromium not found
+
+Run:
 
 ```bash
 python -m playwright install chromium
 ```
 
-### Cloudflare bloquea la carga de capítulos
+### Cloudflare blocks chapter loading
 
-En `config.json` pon:
+In `config.json` set:
 
 ```json
 "wait_for_cloudflare_input": true
 ```
 
-Luego ejecuta el script, completa el captcha en el navegador y pulsa ENTER en terminal.
+Then run the script, complete the captcha in the browser, and press ENTER in the terminal.
 
-### El PDF sale sin cambios tras editar la URL
+### PDF has no changes after editing the URL
 
-Fuerza reconstrucción:
+Force a rebuild:
 
 ```bash
 python neoseeker_to_pdf.py --rebuild-html
@@ -181,21 +181,21 @@ python neoseeker_to_pdf.py --rebuild-html
 
 ---
 
-## Estructura principal
+## Project structure
 
 ```text
-neoseeker_to_pdf.py        # Punto de entrada principal
-config.json                # Configuración
-guide.html                 # HTML combinado generado
+neoseeker_to_pdf.py        # Main entry point
+config.json                # Configuration
+guide.html                 # Generated combined HTML
 src/neoseeker_to_pdf/
-  neoseeker_client.py      # Descarga/crawling de capítulos
-  html_cleaner.py          # Limpieza del HTML
-  workflow.py              # El flujo
-  pdf_generator.py         # Generación de PDF
+  neoseeker_client.py      # Chapter downloading/crawling
+  html_cleaner.py          # HTML cleanup
+  workflow.py              # The workflow
+  pdf_generator.py         # PDF generation
 ```
 
 ---
 
-## Nota legal
+## Legal notice
 
-El contenido descargado pertenece a sus autores originales. Usa este proyecto de forma personal y respetando los términos de uso y copyright del sitio fuente.
+Downloaded content belongs to its original authors. Use this project for personal use only, respecting the terms of use and copyright of the source site.
